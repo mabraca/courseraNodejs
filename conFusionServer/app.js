@@ -3,6 +3,8 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
+var session = require('express-session');
+var FileStore = require('session-file-store')(session);
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
@@ -34,16 +36,22 @@ app.set('view engine', 'jade');
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser('12345-67890-09876-12345'));
+// app.use(cookieParser('12345-67890-09876-12345'));
+app.use(session({
+  name: 'session-id',
+  secret: '12345-67890-09876-12345',
+  saveUninitialized: false,
+  resave: false,
+  store: new FileStore()
+
+}));
 
 function auth (req, res, next) {
-  console.log("paso 1",req.signedCookies.user);
+  console.log("paso 1",req.session);
 
-  if (!req.signedCookies.user) {
+  if (!req.session.user) {
     var authHeader = req.headers.authorization;
-    console.log("paso 2",authHeader);
     if (!authHeader) {
-      console.log("paso 8",authHeader);
         var err = new Error('You are not authenticated!');
         res.setHeader('WWW-Authenticate', 'Basic');              
         err.status = 401;
@@ -54,11 +62,9 @@ function auth (req, res, next) {
     var user = auth[0];
     var pass = auth[1];
     if (user == 'admin' && pass == 'password') {
-      console.log("paso 6",authHeader);
-        res.cookie('user','admin',{signed: true});
+        req.session.user= 'admin';
         next(); // authorized
     } else {
-      console.log("paso 7",authHeader);
         var err = new Error('You are not authenticated!');
         res.setHeader('WWW-Authenticate', 'Basic');              
         err.status = 401;
@@ -66,13 +72,10 @@ function auth (req, res, next) {
     }
   }
   else {
-      console.log("paso 3",authHeader);
-      if (req.signedCookies.user === 'admin') {
-        console.log("paso 4",authHeader);
+      if (req.session.user === 'admin') {
           next();
       }
       else {
-        console.log("paso 5",authHeader);
           var err = new Error('You are not authenticated!');
           err.status = 401;
           next(err);
